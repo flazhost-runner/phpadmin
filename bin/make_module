@@ -1,0 +1,115 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+if ($argc < 2) {
+    fwrite(STDERR, "Usage: php bin/make_module <ModuleName>\n");
+    exit(1);
+}
+
+$name = ucfirst($argv[1]);
+$lower = strtolower($name);
+$baseDir = __DIR__ . '/../src/Modules/' . $name;
+
+$dirs = [
+    $baseDir,
+    $baseDir . '/Contracts',
+    $baseDir . '/Services',
+    $baseDir . '/Controllers',
+];
+
+foreach ($dirs as $dir) {
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        fwrite(STDERR, "Failed to create directory: $dir\n");
+        exit(1);
+    }
+}
+
+// {Name}Module.php
+$moduleFile = <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace PHPAdmin\Modules\\{$name};
+
+class {$name}Module
+{
+    public static function getName(): string
+    {
+        return '{$lower}';
+    }
+}
+PHP;
+
+// Contracts/I{Name}Service.php
+$interfaceFile = <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace PHPAdmin\Modules\\{$name}\Contracts;
+
+interface I{$name}Service
+{
+    // Define service contract methods here
+}
+PHP;
+
+// Services/{Name}Service.php
+$serviceFile = <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace PHPAdmin\Modules\\{$name}\Services;
+
+use PHPAdmin\Modules\\{$name}\Contracts\I{$name}Service;
+use PHPAdmin\Core\Exceptions\AppException;
+
+class {$name}Service implements I{$name}Service
+{
+    // Implement I{$name}Service methods here
+    // Always throw AppException subclasses on error — never return error or die()
+}
+PHP;
+
+// Controllers/{Name}Controller.php
+$controllerFile = <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace PHPAdmin\Modules\\{$name}\Controllers;
+
+use PHPAdmin\Modules\\{$name}\Contracts\I{$name}Service;
+
+class {$name}Controller
+{
+    public function __construct(
+        private readonly I{$name}Service \$service,
+    ) {}
+
+    // Thin controller: parse request, call service, render/redirect/json_response
+    // No business logic here
+}
+PHP;
+
+$files = [
+    $baseDir . '/' . $name . 'Module.php'              => $moduleFile,
+    $baseDir . '/Contracts/I' . $name . 'Service.php'  => $interfaceFile,
+    $baseDir . '/Services/' . $name . 'Service.php'    => $serviceFile,
+    $baseDir . '/Controllers/' . $name . 'Controller.php' => $controllerFile,
+];
+
+foreach ($files as $path => $content) {
+    if (file_exists($path)) {
+        echo "SKIP (exists): $path\n";
+        continue;
+    }
+    file_put_contents($path, $content . "\n");
+    echo "CREATED: $path\n";
+}
+
+echo "\nNext: add to config/modules.php + config/definitions.php + run composer dump-autoload\n";

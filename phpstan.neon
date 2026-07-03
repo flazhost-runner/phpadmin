@@ -1,0 +1,10 @@
+parameters:
+    level: 6
+    paths:
+        - src
+    excludePaths:
+        - src/Core/helpers.php
+    ignoreErrors:
+        - identifier: missingType.iterableValue
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false

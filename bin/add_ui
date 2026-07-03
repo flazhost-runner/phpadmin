@@ -1,0 +1,43 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$envFile = __DIR__ . '/../.env';
+
+if (!file_exists($envFile)) {
+    fwrite(STDERR, "Error: .env file not found at $envFile\n");
+    fwrite(STDERR, "Run: cp .env.example .env and configure it first.\n");
+    exit(1);
+}
+
+$contents = file_get_contents($envFile);
+if ($contents === false) {
+    fwrite(STDERR, "Error: Cannot read .env file.\n");
+    exit(1);
+}
+
+// Set or update APP_MODE=full
+if (preg_match('/^APP_MODE\s*=.*/m', $contents)) {
+    $contents = preg_replace('/^APP_MODE\s*=.*/m', 'APP_MODE=full', $contents);
+} else {
+    $contents = rtrim($contents) . "\nAPP_MODE=full\n";
+}
+
+if (file_put_contents($envFile, $contents) === false) {
+    fwrite(STDERR, "Error: Cannot write to .env file.\n");
+    exit(1);
+}
+
+echo "Set APP_MODE=full in .env\n";
+
+// Run composer dump-autoload
+$projectRoot = dirname(__DIR__);
+passthru("composer dump-autoload --working-dir=" . escapeshellarg($projectRoot), $exitCode);
+
+if ($exitCode !== 0) {
+    fwrite(STDERR, "composer dump-autoload failed.\n");
+    exit($exitCode);
+}
+
+echo "\nUI mode enabled successfully. Run: composer start\n";
