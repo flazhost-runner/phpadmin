@@ -500,10 +500,12 @@ class SettingService implements ISettingService
         }
 
         $status = 0;
-        // PHP 8.3-kompatibel: $http_response_header diisi otomatis oleh
-        // file_get_contents dengan wrapper http (http_get_last_response_headers()
-        // baru ada di PHP 8.5).
-        $responseHeaders = $http_response_header;
+        // PHP 8.5: $http_response_header deprecated -> pakai
+        // http_get_last_response_headers(); PHP <= 8.4 fallback ke variabel lama
+        // (diisi otomatis file_get_contents dengan wrapper http).
+        $responseHeaders = function_exists('http_get_last_response_headers')
+            ? (http_get_last_response_headers() ?? [])
+            : $http_response_header;
         if (!empty($responseHeaders)) {
             if (preg_match('/HTTP\/\S+ (\d{3})/', $responseHeaders[0], $m)) {
                 $status = (int)$m[1];
