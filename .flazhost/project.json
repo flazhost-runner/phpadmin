@@ -1,9 +1,0 @@
-{
-  "name": "PHPAdmin",
-  "language": "php",
-  "install": ["composer install"],
-  "migrate": ["php vendor/bin/phinx migrate"],
-  "start": "php -d opcache.enable=0 -S 0.0.0.0:${APP_PORT} -t public public/index.php",
-  "url": "http://localhost:${APP_PORT}",
-  "readyPath": "/"
-}
