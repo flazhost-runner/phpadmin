@@ -9,5 +9,9 @@
   ],
   "start": "php -d opcache.enable=0 -S 0.0.0.0:${APP_PORT} -t public public/index.php",
   "url": "http://localhost:${APP_PORT}",
-  "readyPath": "/"
+  "readyPath": "/",
+  "devEnv": {
+    "DB_DRIVER": "sqlite",
+    "DB_DATABASE": "storage/phpadmin.sqlite3"
+  }
 }
