@@ -494,20 +494,27 @@ class SettingService implements ISettingService
             ],
         ]);
 
-        $body = @file_get_contents($url, false, $ctx);
+        // fopen + stream_get_meta_data, BUKAN file_get_contents +
+        // $http_response_header: di PHP 8.5 variabel itu memicu deprecation
+        // cukup dengan disebut di scope (cabang ternary tidak menolong).
+        // wrapper_data = header respons, tersedia di semua versi PHP.
+        $fp = @fopen($url, 'r', false, $ctx);
+        if ($fp === false) {
+            return null;
+        }
+        $meta = stream_get_meta_data($fp);
+        $body = stream_get_contents($fp);
+        fclose($fp);
         if ($body === false) {
             return null;
         }
 
         $status = 0;
-        // PHP 8.5: $http_response_header deprecated -> pakai
-        // http_get_last_response_headers(); PHP <= 8.4 fallback ke variabel lama
-        // (diisi otomatis file_get_contents dengan wrapper http).
-        $responseHeaders = function_exists('http_get_last_response_headers')
-            ? (http_get_last_response_headers() ?? [])
-            : $http_response_header;
-        if (!empty($responseHeaders)) {
-            if (preg_match('/HTTP\/\S+ (\d{3})/', $responseHeaders[0], $m)) {
+        $responseHeaders = $meta['wrapper_data'] ?? [];
+        // follow_location aktif: wrapper_data memuat seluruh rantai redirect —
+        // ambil status line TERAKHIR (respons final), bukan yang pertama.
+        foreach ($responseHeaders as $line) {
+            if (is_string($line) && preg_match('/^HTTP\/\S+ (\d{3})/', $line, $m)) {
                 $status = (int)$m[1];
             }
         }
