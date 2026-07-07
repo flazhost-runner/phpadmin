@@ -4,6 +4,8 @@ Base URL: `/api/v1`
 
 All endpoints return `Content-Type: application/json`. Authentication via `Authorization: Bearer <jwt>` header.
 
+A ready-to-import Postman collection is available at [`postman/PHPAdmin.postman_collection.json`](postman/PHPAdmin.postman_collection.json). Set the `base_url` variable to `http://localhost:8001` (the port used by `composer start`) and `access_token` to a JWT obtained from the login endpoint.
+
 ---
 
 ## Auth

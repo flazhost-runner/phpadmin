@@ -137,6 +137,11 @@ Authorization: Bearer <token>
 Content-Type: application/json
 ```
 
+### Postman Collection
+
+Koleksi Postman lengkap tersedia di [`docs/postman/PHPAdmin.postman_collection.json`](docs/postman/PHPAdmin.postman_collection.json).
+Import file tersebut ke Postman, lalu atur variabel `base_url` (default `http://localhost:8001` — port yang dipakai `composer start`) dan `access_token` (JWT dari endpoint login).
+
 ### Auth
 
 | Method | Path | Deskripsi |
