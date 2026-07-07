@@ -212,12 +212,13 @@ if (!function_exists('require_api_auth')) {
             $payload = (array)$decoded;
             // Check blacklist if Redis is available
             $jti = (string)($payload['jti'] ?? '');
-            if ($jti !== '' && class_exists(\PHPAdmin\Core\RedisSessionHandler::class)) {
-                $redisHost = (string)($_ENV['REDIS_HOST'] ?? '');
-                if ($redisHost !== '') {
+            $redisConfigured = ($_ENV['REDIS_URL'] ?? '') !== '' || ($_ENV['REDIS_HOST'] ?? '') !== '';
+            if ($jti !== '' && $redisConfigured && class_exists(\PHPAdmin\Core\RedisSessionHandler::class)) {
+                // redisParameters() carries TLS + SNI (peer_name) for rediss:// URLs.
+                $redisCfg = new \PHPAdmin\Core\AppConfig();
+                if ($redisCfg->redisHost !== '') {
                     try {
-                        $redis = new \Predis\Client(['scheme' => 'tcp', 'host' => $redisHost,
-                            'port' => (int)($_ENV['REDIS_PORT'] ?? 6379)]);
+                        $redis = new \Predis\Client($redisCfg->redisParameters());
                         if ($redis->exists("jwt_blacklist:{$jti}")) {
                             json_response(['status' => false, 'message' => 'Token revoked', 'data' => null], 401);
                             exit;

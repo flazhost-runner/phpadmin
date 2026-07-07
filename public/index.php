@@ -88,15 +88,8 @@ if ($config->isFullMode()) {
         }
     } elseif ($config->redisHost !== '') {
         try {
-            $redisOptions = [
-                'scheme' => 'tcp',
-                'host'   => $config->redisHost,
-                'port'   => $config->redisPort,
-            ];
-            if ($config->redisPassword !== '') {
-                $redisOptions['password'] = $config->redisPassword;
-            }
-            $redis          = new PredisClient($redisOptions);
+            // redisParameters() adds TLS + SNI (peer_name) when REDIS_URL is rediss://.
+            $redis          = new PredisClient($config->redisParameters());
             $sessionHandler = new RedisSessionHandler($redis, $ttlSec);
             session_set_save_handler($sessionHandler, true);
         } catch (\Throwable) {

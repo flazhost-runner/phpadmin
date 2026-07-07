@@ -28,6 +28,7 @@ readonly class AppConfig
     public string $redisHost;
     public int $redisPort;
     public string $redisPassword;
+    public bool $redisTls;
 
     // Session & Auth
     public string $sessionDriver;
@@ -79,17 +80,22 @@ readonly class AppConfig
         $this->dbPassword = $_ENV['DB_PASSWORD'] ?? '';
         $this->dbCharset  = $_ENV['DB_CHARSET']  ?? 'utf8mb4';
 
-        // REDIS_URL=redis://[:password@]host[:port] takes priority over individual vars
+        // REDIS_URL=redis://[:password@]host[:port] takes priority over individual vars.
+        // A rediss:// (or tls://) scheme enables TLS — required by managed Redis behind
+        // an SNI-routing proxy. REDIS_TLS=true forces TLS when using discrete vars.
         $redisUrl = $_ENV['REDIS_URL'] ?? '';
         if ($redisUrl !== '') {
             $parsed              = parse_url($redisUrl) ?: [];
+            $scheme              = strtolower((string)($parsed['scheme'] ?? 'redis'));
             $this->redisHost     = (string)($parsed['host'] ?? '127.0.0.1');
             $this->redisPort     = (int)($parsed['port'] ?? 6379);
             $this->redisPassword = isset($parsed['pass']) ? urldecode($parsed['pass']) : '';
+            $this->redisTls      = in_array($scheme, ['rediss', 'tls', 'ssl'], true);
         } else {
             $this->redisHost     = $_ENV['REDIS_HOST']     ?? '127.0.0.1';
             $this->redisPort     = (int)($_ENV['REDIS_PORT'] ?? 6379);
             $this->redisPassword = $_ENV['REDIS_PASSWORD'] ?? '';
+            $this->redisTls      = filter_var($_ENV['REDIS_TLS'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
         }
 
         $this->sessionDriver    = $_ENV['SESSION_DRIVER']    ?? 'database';
@@ -139,6 +145,38 @@ readonly class AppConfig
     public function isFullMode(): bool
     {
         return strtolower($this->appMode) === 'full';
+    }
+
+    /**
+     * Build the Predis connection parameters.
+     *
+     * When TLS is enabled (rediss:// / tls://) the SSL context sets `peer_name`
+     * to the Redis host. This is required so the TLS ClientHello carries an SNI
+     * servername: managed Redis behind an SNI-routing proxy closes connections
+     * that omit it. Predis opens a plain tcp socket then upgrades via
+     * stream_socket_enable_crypto(), where SNI is taken solely from `peer_name`.
+     *
+     * @return array<string, mixed>
+     */
+    public function redisParameters(): array
+    {
+        $params = [
+            'scheme' => $this->redisTls ? 'tls' : 'tcp',
+            'host'   => $this->redisHost,
+            'port'   => $this->redisPort,
+        ];
+        if ($this->redisPassword !== '') {
+            $params['password'] = $this->redisPassword;
+        }
+        if ($this->redisTls) {
+            $params['ssl'] = [
+                'peer_name'         => $this->redisHost,
+                'SNI_enabled'       => true,
+                'verify_peer'       => true,
+                'verify_peer_name'  => true,
+            ];
+        }
+        return $params;
     }
 
     /**

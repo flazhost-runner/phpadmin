@@ -21,15 +21,8 @@ return [
     }),
 
     PredisClient::class => factory(function (AppConfig $config): PredisClient {
-        $options = [
-            'scheme' => 'tcp',
-            'host'   => $config->redisHost,
-            'port'   => $config->redisPort,
-        ];
-        if ($config->redisPassword !== '') {
-            $options['password'] = $config->redisPassword;
-        }
-        return new PredisClient($options);
+        // Params include TLS + SNI (peer_name) when REDIS_URL uses rediss://.
+        return new PredisClient($config->redisParameters());
     }),
 
     // ─── Access module ───────────────────────────────────────────────────────
