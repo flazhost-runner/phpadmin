@@ -6,6 +6,8 @@ All endpoints return `Content-Type: application/json`. Authentication via `Autho
 
 A ready-to-import Postman collection is available at [`postman/PHPAdmin.postman_collection.json`](postman/PHPAdmin.postman_collection.json). Set the `base_url` variable to `http://localhost:8001` (the port used by `composer start`) and `access_token` to a JWT obtained from the login endpoint.
 
+> **File storage / uploads:** the media library switches between `local` and `oss`/`s3` backends via `.env` only. The DB stores object **keys** and the render URL is built per driver (`/storage/<key>` for local, a presigned redirect for OSS/S3). See the **"Storage & switching backends"** section in [`../README.md`](../README.md#storage--switching-backends).
+
 ---
 
 ## Auth

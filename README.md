@@ -276,6 +276,68 @@ composer migrate
 
 ---
 
+## Storage & switching backends
+
+Upload gambar (media library editor) memakai adapter storage yang di-switch **hanya lewat `.env`** — tidak perlu ubah kode atau view. Yang disimpan di database adalah **key** objek; **URL render dibangun saat request**, berbeda per driver.
+
+### Driver yang tersedia
+
+| `STORAGE_DRIVER` | Penyimpanan | Key yang disimpan | URL saat render |
+|------------------|-------------|-------------------|-----------------|
+| `local` | Filesystem lokal (`storage/editor/`) | `editor/<uuid>.<ext>` | `/storage/editor/<uuid>.<ext>` — URL relatif stabil, dilayani langsung |
+| `oss` / `s3` | Bucket S3-compatible (AWS S3, Alibaba OSS, MinIO, R2, DigitalOcean Spaces, …) | `media/editor/<uuid>.<ext>` | `/admin/v1/media/file/<name>` → **302 redirect** ke presigned URL (TTL 6 jam); bucket boleh private |
+
+Driver aktif ditentukan otomatis: `STORAGE_DRIVER != local` **dan** `STORAGE_ACCESS_KEY_ID` + `STORAGE_BUCKET` terisi → mode OSS/S3; selain itu → local.
+
+### Cara local dilayani
+
+Front controller mengekspos direktori upload pada prefix URL stabil `/storage/<key>`:
+
+- **Production (nginx/apache, docroot = `public/`):** symlink `public/storage → ../storage` (sudah di-commit) membuat file di `storage/editor/` dapat diakses di `/storage/editor/...`. Web server melayaninya langsung sebagai file statis.
+- **Dev server (`composer start`, `php -S`):** `public/index.php` punya passthrough statis yang melayani file di bawah `public/` (termasuk lewat symlink `storage`), lengkap dengan `Content-Type` yang benar. Passthrough ini di-realpath dan dibatasi allow-list root sehingga **path traversal** (`/storage/../../.env`) ditolak.
+
+> URL render dipisah dari path filesystem: prefix web selalu `/storage/...` meski `STORAGE_BASE_PATH` diarahkan ke lokasi lain.
+
+### Switch driver
+
+Ubah `.env` lalu **restart server** (proses membaca config saat boot):
+
+```env
+# Local (default) — tanpa kredensial cloud
+STORAGE_DRIVER=local
+STORAGE_BASE_PATH=storage/uploads
+
+# OSS / S3 — cukup isi kredensial + bucket, tak ada perubahan kode
+STORAGE_DRIVER=s3            # atau: oss
+STORAGE_ACCESS_KEY_ID=AKIA...
+STORAGE_SECRET_ACCESS_KEY=...
+STORAGE_ENDPOINT=https://s3.ap-southeast-1.amazonaws.com   # kosongkan utk AWS default
+STORAGE_BUCKET=my-bucket
+STORAGE_REGION=ap-southeast-1
+STORAGE_PATH_STYLE=false     # true utk MinIO / beberapa S3-compat
+```
+
+### Migrasi data saat pindah backend
+
+Database menyimpan **key**, bukan URL absolut, jadi memindahkan file antar backend tidak butuh perubahan data — cukup salin objek dengan key yang sama:
+
+```bash
+# local → S3
+aws s3 sync storage/editor/ s3://my-bucket/media/editor/
+
+# local → OSS (Alibaba)
+ossutil cp -r storage/editor/ oss://my-bucket/media/editor/
+```
+
+> Perhatikan perbedaan prefix key: local memakai `editor/`, OSS/S3 memakai `media/editor/`. Sesuaikan tujuan sync sesuai tabel di atas.
+
+### Catatan produksi (driver local)
+
+- Isi `storage/editor/` (dan `storage/uploads/`, `storage/di-cache/`, `storage/fe-cache/`) **di-git-ignore**; hanya `.gitkeep` yang di-commit agar direktori tetap ada.
+- Filesystem lokal bersifat **ephemeral** di platform seperti container/PaaS — file hilang saat redeploy. Untuk produksi dengan `local`, mount **volume persisten** ke `storage/`, atau gunakan driver `oss`/`s3`.
+
+---
+
 ## APP_MODE=api
 
 Untuk deployment sebagai API-only (tanpa session, CSRF, Redis, dan views):

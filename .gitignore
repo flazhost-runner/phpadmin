@@ -3,3 +3,15 @@
 .env
 *.sqlite3
 dev.sqlite3
+
+# Uploaded & generated content — keep the directories, ignore their contents.
+# The media library (STORAGE_DRIVER=local) writes uploads to storage/editor/,
+# and the app writes caches to storage/di-cache/ and storage/fe-cache/.
+/storage/editor/*
+!/storage/editor/.gitkeep
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/storage/di-cache/*
+!/storage/di-cache/.gitkeep
+/storage/fe-cache/*
+!/storage/fe-cache/.gitkeep

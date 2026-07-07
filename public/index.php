@@ -3,11 +3,33 @@
 declare(strict_types=1);
 
 // ─── 0. php -S: serve static files directly (router passthrough) ─────────────
-// When `return false` the built-in server falls back to its normal static-file
-// handler. Must run before ob_start() so no output is sent first.
+// Emulates what a real web server (nginx/apache with docroot = public/) does for
+// the built-in dev server: serve existing files under public/ — including the
+// `public/storage → ../storage` symlink used by the local STORAGE_DRIVER — before
+// the router runs. In production this block never executes (php-fpm ≠ cli-server);
+// the web server serves static assets itself. Must run before ob_start().
+//
+// Path-traversal guard: the requested URL is url-decoded and resolved with
+// realpath(), then confined to an allow-list of real base directories (the public
+// dir and the storage dir it symlinks to). A request like /storage/../../.env
+// resolves outside both roots and is rejected — it falls through to the router
+// (→ 404) instead of leaking files.
 if (PHP_SAPI === 'cli-server') {
-    $staticFile = __DIR__ . parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-    if ($staticFile !== __FILE__ && is_file($staticFile)) {
+    $reqPath    = rawurldecode(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+    $realFile   = realpath(__DIR__ . $reqPath);
+    $allowRoots = array_filter([realpath(__DIR__), realpath(__DIR__ . '/storage')]);
+
+    $withinRoot = false;
+    if ($realFile !== false && $realFile !== __FILE__) {
+        foreach ($allowRoots as $root) {
+            if ($realFile === $root || str_starts_with($realFile, $root . DIRECTORY_SEPARATOR)) {
+                $withinRoot = true;
+                break;
+            }
+        }
+    }
+
+    if ($withinRoot && is_file($realFile)) {
         static $mimes = [
             'css' => 'text/css', 'js' => 'application/javascript',
             'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
@@ -16,10 +38,10 @@ if (PHP_SAPI === 'cli-server') {
             'eot' => 'application/vnd.ms-fontobject', 'map' => 'application/json',
             'json' => 'application/json', 'webp' => 'image/webp',
         ];
-        $ext = strtolower(pathinfo($staticFile, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($realFile, PATHINFO_EXTENSION));
         header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
         header('Cache-Control: public, max-age=86400');
-        readfile($staticFile);
+        readfile($realFile);
         exit;
     }
 }
