@@ -57,6 +57,20 @@ esac
 # --- 4. Database directory + migrations + seed --------------------------------
 # Default DB is SQLite under /app/data; managed DBs are driven purely by env
 # (DB_DRIVER/DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD/DB_DATABASE) with no edits.
+
+# Platform mengirim DB_TYPE generik (mysql|mariadb|postgres) saat DB di-link —
+# app membaca DB_DRIVER dengan nilai PDO (mysql|pgsql|sqlite). DB_TYPE = niat
+# eksplisit → menang atas default Dockerfile DB_DRIVER=sqlite (pola djangoadmin
+# DB_TYPE→DB_ENGINE / laraveladmin DB_TYPE→DB_CONNECTION).
+if [ -n "${DB_TYPE:-}" ]; then
+    case "$DB_TYPE" in
+        mysql|mariadb)          export DB_DRIVER=mysql ;;
+        postgres|postgresql|pg) export DB_DRIVER=pgsql ;;
+        sqlite|sqlite3)         export DB_DRIVER=sqlite ;;
+        *) echo "[entrypoint] WARN: unknown DB_TYPE='$DB_TYPE' — keeping DB_DRIVER=${DB_DRIVER:-sqlite}" ;;
+    esac
+fi
+
 if [ "${DB_DRIVER:-sqlite}" = "sqlite" ] && [ "${DB_DATABASE:-}" != ":memory:" ]; then
     case "${DB_DATABASE:-}" in
         /*) mkdir -p "$(dirname "$DB_DATABASE")" 2>/dev/null || true ;;
