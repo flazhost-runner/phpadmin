@@ -133,9 +133,14 @@ class ProfileController
     /**
      * Render a view inside the admin_main layout.
      *
-     * @param array<string, mixed> $data
+     * Param sengaja bernama $vars (bukan $data): extract() di bawah memakai
+     * EXTR_SKIP, sehingga variabel lokal yang sudah ada TIDAK ditimpa — kalau
+     * param bernama $data, key 'data' di $pageData ikut ter-skip dan view
+     * menerima $data yang salah (profil tampil kosong / foto tidak muncul).
+     *
+     * @param array<string, mixed> $vars
      */
-    private function renderProfile(string $viewFile, array $data = [], string $title = 'PHPAdmin'): void
+    private function renderProfile(string $viewFile, array $vars = [], string $title = 'PHPAdmin'): void
     {
         $setting   = SettingCache::get() ?? [];
         $themeName = (string)($setting['theme'] ?? 'Blue');
@@ -147,7 +152,7 @@ class ProfileController
             $themeName = 'Blue';
         }
 
-        $currentUser = $data['authUser'] ?? null;
+        $currentUser = $vars['authUser'] ?? null;
 
         $pageData = array_merge([
             'theme'       => $theme,
@@ -160,7 +165,7 @@ class ProfileController
             'errors'      => [],
             'oldInput'    => [],
             'pageTitle'   => $title . ' — ' . $this->config->appName,
-        ], $data);
+        ], $vars);
 
         ob_start();
         extract($pageData, EXTR_SKIP);
